@@ -1,0 +1,42 @@
+# Per-folder ignores — each sub-project keeps its own build artefacts.
+backend/bin/
+backend/data/
+backend/certs/localhost*.pem
+backend/certs/localhost*-key.pem
+
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/vite.config.ts.timestamp-*.mjs
+frontend/tsconfig.tsbuildinfo
+
+# Root-level leftovers
+*.exe
+*.test
+*.out
+*.log
+logs/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# WorkBuddy local memory & skills (per-user, not project code)
+.workbuddy/
+
+# Env (never commit real keys)
+.env
+backend/.env
+frontend/.env
+frontend/.env.local
+
+# SQLite artefacts (root or anywhere)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Signing helper artefacts
+backend/scripts/*.log

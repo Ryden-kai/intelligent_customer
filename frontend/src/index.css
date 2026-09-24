@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+.bubble-user {
+  @apply bg-brand-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[75%] self-end whitespace-pre-wrap;
+}
+.bubble-assistant {
+  @apply bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[75%] self-start whitespace-pre-wrap shadow-sm;
+}
+.bubble-agent {
+  @apply bg-emerald-50 border border-emerald-200 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[75%] self-start whitespace-pre-wrap shadow-sm;
+}
+
+.tag {
+  @apply inline-block text-xs px-2 py-0.5 rounded-full mr-1;
+}

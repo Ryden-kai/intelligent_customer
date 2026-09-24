@@ -1,0 +1,6 @@
+# Cloudflare Pages SPA fallback — every unknown path returns the SPA shell
+# so React Router can handle client-side routes like /admin/conversations/123.
+# Static assets (e.g. /assets/*.js, /assets/*.css) and the /api proxy
+# (handled separately in CF Pages → Functions / Workers) are not affected.
+/api/*  https://api.your-domain.com/api/:splat  200
+/*      /index.html                           200
