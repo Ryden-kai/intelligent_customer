@@ -179,6 +179,13 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func clientIP(r *http.Request) string {
+	return ClientIP(r)
+}
+
+// ClientIP 提取请求的客户端 IP：X-Forwarded-For > X-Real-IP > RemoteAddr。
+//
+// 公开供 audit 包使用（audit logger 需要在事件里记录 IP）。
+func ClientIP(r *http.Request) string {
 	if v := r.Header.Get("X-Forwarded-For"); v != "" {
 		if i := strings.Index(v, ","); i >= 0 {
 			return strings.TrimSpace(v[:i])

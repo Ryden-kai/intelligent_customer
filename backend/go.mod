@@ -12,6 +12,8 @@ require (
 	github.com/sashabaranov/go-openai v1.20.5
 	golang.org/x/crypto v0.27.0
 	golang.org/x/term v0.24.0
+	golang.org/x/time v0.5.0
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.34.5
 )
 

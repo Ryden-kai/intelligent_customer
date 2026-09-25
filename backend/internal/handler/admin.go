@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"intelligent_customer/backend/internal/apperr"
+	"intelligent_customer/backend/internal/audit"
 	"intelligent_customer/backend/internal/auth"
 	"intelligent_customer/backend/internal/log"
 	"intelligent_customer/backend/internal/repo"
@@ -23,6 +24,9 @@ type Admin struct {
 	Logger  zerolog.Logger
 	Auth    *AuthHandlers
 	Issuer  *auth.Issuer
+
+	// AuditSink 可选；写 auth.login 审计事件。
+	AuditSink audit.Emitter
 }
 
 // ListConversations: GET /api/admin/conversations?status=&page=&size=
@@ -122,9 +126,12 @@ func (h *Admin) PostAgentReply(w http.ResponseWriter, r *http.Request) {
 // ----------------------------------------------------------------------------
 
 type AuthHandlers struct {
-	Issuer    *auth.Issuer
-	Admins    *repo.AdminUsers
-	Logger    zerolog.Logger
+	Issuer     *auth.Issuer
+	Admins     *repo.AdminUsers
+	Logger     zerolog.Logger
+
+	// AuditSink 可选；auth.login 审计埋点。
+	AuditSink audit.Emitter
 }
 
 type loginReq struct {
@@ -194,6 +201,11 @@ func (a *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		writeAppError(w, r, apperr.Internal("sign token").WithCause(err))
 		return
 	}
+	// 审计：登录成功。
+	if a.AuditSink != nil {
+		a.AuditSink.EmitFromRequest(r, audit.ActionAuthLogin, "user", u.ID,
+			audit.Payload{"username": u.Username, "role": u.Role})
+	}
 	lg.Info().Str("user", u.Username).Msg("login_ok")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(loginResp{
@@ -212,8 +224,11 @@ func (a *AuthHandlers) Whoami(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"username": c.Username,
-		"role":     c.Role,
+		"username":    c.Username,
+		"role":        c.Role,
+		"email":       c.Email,
+		"permissions": c.Permissions,
+		"tenant_id":   c.TenantID,
 	})
 }
 

@@ -4,10 +4,29 @@ import { api, getToken, setToken } from '../api';
 import ConversationListPage from './ConversationListPage';
 import ConversationDetailPage from './ConversationDetailPage';
 import StatsPage from './StatsPage';
+import SkillsPage from './SkillsPage';
+import JevTemplatesPage from './JevTemplatesPage';
+import JevObservabilityPage from './JevObservabilityPage';
+import RolesPage from './RolesPage';
+import AuditLogPage from './AuditLogPage';
+import RateLimitConfigPage from './RateLimitConfigPage';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+
+interface WhoamiExt {
+  username: string;
+  role: string;
+  permissions?: string[];
+}
+
+function hasPerm(perms: string[] | undefined, code: string): boolean {
+  if (!perms || perms.length === 0) return false;
+  if (perms.includes('*')) return true;
+  return perms.includes(code);
+}
 
 export default function AdminApp() {
   const [token, setTok] = useState<string | null>(getToken());
-  const [user, setUser] = useState<{ username: string; role: string } | null>(null);
+  const [user, setUser] = useState<WhoamiExt | null>(null);
   const nav = useNavigate();
 
   useEffect(() => {
@@ -30,40 +49,59 @@ export default function AdminApp() {
     );
   }
 
+  const perms = user?.permissions;
+  const showRoles = hasPerm(perms, 'role.read');
+  const showAudit = hasPerm(perms, 'audit.read');
+  const showRateLimit = hasPerm(perms, 'ratelimit.manage');
+
   return (
-    <div className="min-h-full flex flex-col">
-      <header className="bg-slate-800 text-white px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="font-semibold">智能客服 · 管理后台</div>
-          <nav className="flex gap-3 text-sm text-slate-200">
-            <Link to="/admin/conversations" className="hover:text-white">会话</Link>
-            <Link to="/admin/stats" className="hover:text-white">满意度</Link>
-          </nav>
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          {user && <span>{user.username}（{user.role}）</span>}
-          <button
-            onClick={() => {
-              setToken(null);
-              setTok(null);
-              nav('/admin/login', { replace: true });
-            }}
-            className="text-slate-300 hover:text-white underline text-xs"
-          >
-            退出
-          </button>
-        </div>
-      </header>
-      <main className="flex-1 max-w-6xl mx-auto w-full p-6">
-        <Routes>
-          <Route path="/" element={<Navigate to="/admin/conversations" replace />} />
-          <Route path="/conversations" element={<ConversationListPage />} />
-          <Route path="/conversations/:id" element={<ConversationDetailPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="*" element={<Navigate to="/admin/conversations" replace />} />
-        </Routes>
-      </main>
-    </div>
+    <ErrorBoundary scope="admin">
+      <div className="min-h-full flex flex-col">
+        <header className="bg-slate-800 text-white px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="font-semibold">智能客服 · 管理后台</div>
+            <nav className="flex gap-3 text-sm text-slate-200">
+              <Link to="/admin/conversations" className="hover:text-white">会话</Link>
+              <Link to="/admin/stats" className="hover:text-white">满意度</Link>
+              <Link to="/admin/skills" className="hover:text-white">Skill</Link>
+              <Link to="/admin/jev/templates" className="hover:text-white">Jev 模板</Link>
+              <Link to="/admin/jev/observability" className="hover:text-white">Jev 可观测</Link>
+              {showRoles && <Link to="/admin/roles" className="hover:text-white">角色</Link>}
+              {showAudit && <Link to="/admin/audit" className="hover:text-white">审计日志</Link>}
+              {showRateLimit && <Link to="/admin/ratelimit" className="hover:text-white">限流配置</Link>}
+            </nav>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            {user && <span>{user.username}（{user.role}）</span>}
+            <button
+              onClick={() => {
+                setToken(null);
+                setTok(null);
+                nav('/admin/login', { replace: true });
+              }}
+              className="text-slate-300 hover:text-white underline text-xs"
+            >
+              退出
+            </button>
+          </div>
+        </header>
+        <main className="flex-1 max-w-6xl mx-auto w-full p-6">
+          <Routes>
+            <Route path="/" element={<Navigate to="/admin/conversations" replace />} />
+            <Route path="/conversations" element={<ConversationListPage />} />
+            <Route path="/conversations/:id" element={<ConversationDetailPage />} />
+            <Route path="/stats" element={<StatsPage />} />
+            <Route path="/skills" element={<SkillsPage />} />
+            <Route path="/jev/templates" element={<JevTemplatesPage />} />
+            <Route path="/jev/observability" element={<JevObservabilityPage />} />
+            <Route path="/roles" element={<RolesPage />} />
+            <Route path="/audit" element={<AuditLogPage />} />
+            <Route path="/ratelimit" element={<RateLimitConfigPage />} />
+            <Route path="*" element={<Navigate to="/admin/conversations" replace />} />
+          </Routes>
+        </main>
+      </div>
+    </ErrorBoundary>
   );
 }
 
