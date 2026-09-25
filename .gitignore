@@ -4,10 +4,15 @@ backend/data/
 backend/certs/localhost*.pem
 backend/certs/localhost*-key.pem
 
+# Keep demo skill JSONs committed (handy for `bash scripts/demo.sh` out-of-the-box),
+# but the db demo rows are seeded live by demo.sh itself.
+# Individual demo files: keep committed.
+
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/vite.config.ts.timestamp-*.mjs
+frontend/vitest.config.ts.timestamp-*.mjs
 frontend/tsconfig.tsbuildinfo
 
 # Root-level leftovers

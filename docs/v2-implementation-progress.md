@@ -146,6 +146,65 @@
 
 ---
 
+## v2.2 第三波 — PR3 视觉系统（2026-09-25 交付）
+
+> 本节记录 v2.2 PR3 视觉系统交付明细：设计令牌 + 暗色模式 + 响应式 + Skeleton + EmptyState + a11y 基线 + Vitest。
+> 架构与 PRD 详见 [v2-architecture-design.md §2.3.1 / §4](./v2-architecture-design.md) + [v2-ui-security-prd.md §9.1.1](./v2-ui-security-prd.md)。
+
+| 模块 | 状态 | 实现位置 |
+|---|---|---|
+| **设计令牌 5 组** | ✅ | `frontend/src/design/tokens.ts`（colors / spacing / typography / radius / shadow / breakpoints / semanticAlias；含 brand 9 档 + slate 11 档 + semantic 4 色 3 档 + spacing 13 档 + radius 7 档 + shadow 8 档 4×亮/暗 + typography 7 字号 + lineHeight + breakpoints 6 档） + `tokens.test.ts`（21 用例：5 组齐全 + 取值合规 + 字体 CJK 回退 + 暗色语义别名） |
+| **Tailwind config 消费 tokens + darkMode:'class'** | ✅ | `frontend/tailwind.config.js`（extend 引入 colors.brand/slate/semantic.success/warning/danger/info + `bg-app-*` / `text-app` / `border-app-*` CSS 变量别名；screens 与 tokens.breakpoints 对齐 mobile/sm/md/lg/xl/2xl） |
+| **暗色 CSS 变量 + shimmer animation + a11y focus ring** | ✅ | `frontend/src/index.css`（`:root` light + `.dark` 覆写 7 个 `--app-*` 变量；`body` 跟随语义背景/文字；`@keyframes ic-shimmer` + `.ic-skeleton-shimmer`；`*:focus-visible` 统一蓝色 2px ring；`.table-responsive` overflow-x-auto） |
+| **pre-paint theme script 完善** | ✅ | `frontend/index.html`（保留 PR1 占位 + 加 `meta theme-color`；system 模式下也响应 OS 偏好；写入 meta theme-color） |
+| **useTheme hook（localStorage + matchMedia + 三态循环）** | ✅ | `frontend/src/hooks/useTheme.ts`（`mode: 'system'\|'light'\|'dark'`；`resolved: 'light'\|'dark'`；`setMode` / `cycleMode`；localStorage 写入失败静默；Safari 隐私模式兜底） + `.test.ts`（7 用例：默认 system / setMode dark+light / cycle 三态 / 挂载读 localStorage / matchMedia 变化响应 / setItem 抛错静默） |
+| **ThemeToggle 三态切换按钮** | ✅ | `frontend/src/components/ThemeToggle.tsx`（☀/🌙/🖥 图标；aria-label 含下一模式提示；className 注入） + `.test.tsx`（7 用例：默认 system / 点击切到 light / 三次回 system / showLabel / 挂载读 localStorage / className 注入） |
+| **Skeleton 3 形态（text/circle/rect）+ count** | ✅ | `frontend/src/components/Skeleton.tsx`（width/height 接受 number 或 string；shimmer 默认启用；role=status + aria-busy=true；count > 1 渲染多行仅 text 形态） + `.test.tsx`（10 用例：默认尺寸 / 3 形态 / animate / count / aria） |
+| **EmptyState 3 态（noData/noResult/unauthorized）+ action** | ✅ | `frontend/src/components/EmptyState.tsx`（3 个默认 emoji / 文案 / 按钮；action 支持 primary/secondary；role=status + aria-live=polite） + `.test.tsx`（10 用例：3 态 + 自定义 + onClick + variant=secondary + role + children + className） |
+| **用户端 App.tsx 应用 ThemeToggle + Skeleton + EmptyState + 响应式 + a11y** | ✅ | `frontend/src/App.tsx`（header 放 ThemeToggle + "新会话"；mobile 单列 / tablet-desktop `max-w-3xl`；首屏 `EmptyState variant="noData"`；loading 时 3 行 Skeleton；所有 input 配 `<label>`；textarea 用 `focus-visible:ring-app-brand`；role=alert/alertdialog/status） |
+| **管理后台 AdminApp 应用 ThemeToggle + 移动端汉堡菜单** | ✅ | `frontend/src/admin/AdminApp.tsx`（header 放 ThemeToggle；`lg:hidden` 汉堡按钮 + `mobileNavOpen` state；移动端下拉导航 nav；LoginPage 用 `<label htmlFor>` 配 input；error 用 role=alert；提交按钮 focus-visible:ring-offset-app-bg） |
+| **9 个 admin 页 a11y + Skeleton + EmptyState + 响应式表格** | ✅ | `frontend/src/admin/{StatsPage, ConversationListPage, ConversationDetailPage, SkillsPage, JevTemplatesPage, JevObservabilityPage, RolesPage, AuditLogPage, RateLimitConfigPage}.tsx`（loading 走 Skeleton；空态走 EmptyState；表格 `<div class="table-responsive">` 包裹；非关键列 `hidden md:table-cell`；button 加 aria-label；焦点环统一；modal 加 `role="dialog"` + `aria-modal` + `aria-labelledby`） |
+| **Vitest 安装 + 配置 + setup** | ✅ | `frontend/vitest.config.ts`（jsdom + react plugin + alias `@/` + 单 fork 顺序执行避免 sandbox EPERM）+ `src/test/setup.ts`（jest-dom matcher + matchMedia polyfill + localStorage 兜底 + 抑制 React act() 噪音）+ `tsconfig.json`（types: `vitest/globals` + `@testing-library/jest-dom` + `node`；baseUrl + paths `@/*`） |
+| **package.json scripts + devDeps** | ✅ | `frontend/package.json`（`test: vitest run` / `test:watch: vitest` / `test:coverage: vitest run --coverage`；devDeps 加 `@testing-library/jest-dom` + `@testing-library/react` + `@testing-library/user-event` + `@vitest/coverage-v8` + `@vitest/ui` + `jsdom` + `vitest` + `@types/node`） |
+| **移除 PR1/PR2 的 @ts-nocheck 占位** | ✅ | `frontend/src/components/ErrorBoundary.test.tsx`（PR1 占位 → 5 用例真实测试） + `frontend/src/admin/{RolesPage, AuditLogPage, RateLimitConfigPage}.test.tsx`（PR2 占位 → 各自 2 用例真实测试，mock `../api`） |
+| **前端测试套件 9 文件 / 66 用例 全绿** | ✅ | `npm run test`（vitest 2.1.9 + jsdom） — 设计令牌 21 / useTheme 7 / ThemeToggle 7 / Skeleton 10 / EmptyState 10 / ErrorBoundary 5 / RolesPage 2 / AuditLogPage 2 / RateLimitConfigPage 2 = 66 用例全 PASS |
+| **前端 build 通过（695KB < 800KB 预算）** | ✅ | `npm run build`（tsc -b + vite build 全过；695.31 KB main bundle / 199.47 KB gzipped；23.17 KB CSS） |
+| **README.md 更新** | ✅ | `frontend/README.md`（目录结构加 components / design / hooks / test；新增"测试" / "视觉系统" 两节；技术栈加 Vitest） |
+
+### PR3 测试用例新增（66 用例 ≥ 30 目标）
+
+| 包 / 路径 | 新增用例 | 关键覆盖 |
+|---|---|---|
+| `src/design/tokens.test.ts` | 21 | 5 组齐全 + 间距 4 倍数 + 字体 CJK 回退 + 暗色语义别名 |
+| `src/hooks/useTheme.test.ts` | 7 | 默认 system / setMode / cycle / 挂载读 / matchMedia / Safari 隐私 |
+| `src/components/ThemeToggle.test.tsx` | 7 | 渲染 / 点击 / 3 次循环 / showLabel / 挂载读 / className |
+| `src/components/Skeleton.test.tsx` | 10 | 默认 / 3 形态 / animate / count / aria / className |
+| `src/components/EmptyState.test.tsx` | 10 | 3 态 / 自定义 / onClick / secondary / role / children / className |
+| `src/components/ErrorBoundary.test.tsx` | 5 | happy / error / fallback / scope / ID 唯一 |
+| `src/admin/RolesPage.test.tsx` | 2 | 渲染 + mock 数据加载 |
+| `src/admin/AuditLogPage.test.tsx` | 2 | 渲染 + 5 筛选字段 |
+| `src/admin/RateLimitConfigPage.test.tsx` | 2 | 渲染 + 编辑入口 |
+| **合计** | **66 用例 / 9 文件** | **npm run test 全绿** |
+
+### PR3 风险与回滚
+
+- **风险 1**：design tokens 引入后视觉风格剧变 → **缓解**：CSS 变量渐进迁移，所有旧 `slate-*` / `brand-*` / `emerald-*` 等 utility 仍保留可用；新组件用 `app-*` 语义别名，旧组件无需改造。
+- **风险 2**：darkMode 切换导致部分组件破样式 → **缓解**：每个组件单独 review 并 PR 改造；Tailwind `darkMode:'class'` 由 useTheme hook 单点控制；FOUC 由 PR1 pre-paint script 解决。
+- **风险 3**：Vitest 在 Windows sandbox 偶发 EPERM（temp dir 写权限） → **缓解**：`vitest.config.ts` 强制 `cache: false` + `pool: 'forks'` + `singleFork: true`；setup.ts 不写文件。
+- **风险 4**：响应式改造引入新类名后视觉回归 → **缓解**：保留所有 Tailwind 默认断点对齐（mobile / sm 640 / md 768 / lg 1024 / xl 1280）；表格用 `.table-responsive` 包裹避免溢出；mobile 列折叠用 `hidden md:table-cell`。
+- **回滚**：每个子模块独立 — tokens.ts 替换为旧 tailwind.config.js 的散 hex；useTheme / ThemeToggle 删除后 pre-paint script 仍生效（暗色基础设施保留）；Skeleton / EmptyState 是新增组件，删除 import 即可。
+
+### PR3 不做的事（明确留给后续 PR）
+
+- Markdown + sanitize + 代码高亮（PR4）；
+- 流式打字机 + 多会话历史（PR4）；
+- recharts 全利用 + SSE 实时刷新 + CSV 流式 + bulk（PR5）；
+- Channel Adapter / OAuth / PG 迁移（v2.2.1+）；
+- axe-core 自动化扫描（v2.2.1+）：当前用 focus-visible + 语义 HTML + 手动验证（10 个关键页已逐一 review）；
+- 视觉回归截图（Playwright）：v2.2.1 引入，本 PR 仅人工三档视觉回归通过。
+
+---
+
 ## v2.1 已交付的关键能力
 
 ### 1. 多租户基础设施
@@ -223,3 +282,51 @@
 |---|---|---|---|
 | 0.1 | 2026-09-25 | 初稿：v2.1 第一波 13 项交付 + 4 项推迟 + v2.2/v2.3 计划 | Rayden |
 | 0.2 | 2026-09-25 | **v2.1.1 第二波交付**：TenantGuard 装配 / Router 接 AgentChat / Orchestrator 3 触发点插入 chat pipeline / LLMHealth endpoint。14 包 175+ 用例。详见上方"v2.1.1 第二波"表格 | Rayden |
+
+---
+
+## v2.2 第四波 — PR4 聊天体验增强（2026-09-25 交付）
+
+> 本节记录 v2.2 PR4 聊天体验增强交付明细：Markdown + XSS sanitize + 代码高亮 + 流式打字机 + 多会话历史 + 消息操作。
+> 架构与 PRD 详见 [v2-architecture-design.md §3.7](./v2-architecture-design.md) + [v2-ui-security-prd.md §9.1.2 / §9.2](./v2-ui-security-prd.md)。
+> XSS sanitize 是 PRD R2 极高风险项，5 条用例必 100% 通过。
+
+| 模块 | 状态 | 实现位置 |
+|---|---|---|
+| **依赖安装** | ✅ | `frontend/package.json`（+react-markdown@9 + remark-gfm@4 + rehype-highlight@7 + rehype-sanitize@6 + highlight.js@11 + dompurify@3；devDeps +@types/dompurify） |
+| **Markdown 渲染组件** | ✅ | `frontend/src/components/Markdown.tsx`（react-markdown + remark-gfm + rehype-highlight + rehype-sanitize 默认 schema；自定义 a/code 组件；`code` 块由 `pre` 拦截并包 CodeBlock） + `.test.tsx`（18 用例：XSS 5 用例 + 基本 8 用例 + 契约 3 用例） |
+| **CodeBlock 代码块** | ✅ | `frontend/src/components/CodeBlock.tsx`（语言标签 + 复制按钮 + aria-live 宣告 + clipboard API + textarea fallback） + `.test.tsx`（8 用例：渲染 / 复制 / skip / fallback / 错误 / a11y） |
+| **代码高亮样式** | ✅ | `frontend/src/index.css`（`@import highlight.js/styles/github.css` 顶部；`.dark .hljs` 覆盖 GitHub Dark 色系；`.ic-markdown` 容器样式 + `.ic-code-block` 代码块容器 + `.ic-typewriter-cursor` 光标） |
+| **流式打字机 hook** | ✅ | `frontend/src/hooks/useTypewriter.ts`（setInterval 驱动；speedMs 默认 20 ≤ PRD §9.2 上限 30；`skip()` 立即显示全文；`reset()` 清空；`disabled` 直接显示；text 缩短自动清空） + `.test.ts`（9 用例：初始 / 推进 / 完成 / skip / reset / disabled / 缩短 / 变长 / 空） |
+| **流式打字机集成到 App** | ✅ | `frontend/src/App.tsx`（assistant 消息走 AssistantContent，loading 后触发打字机；完成态无光标；进行中显示 1Hz 闪烁光标） |
+| **多会话历史 hook** | ✅ | `frontend/src/hooks/useConversations.ts`（localStorage `ic.conversations` JSON；FIFO 50 条按 updatedAt 升序淘汰；list 始终按 updatedAt 倒序；自动派生 title 30 字 / preview 50 字；metadata 仅 `{role, content, timestamp}`；localStorage 不可用时降级到内存 + degraded=true；损坏 JSON 不崩） + `.test.ts`（17 用例：CRUD / 派生 / FIFO / 边界 / 降级 / 损坏 / 跨实例恢复） |
+| **会话侧栏 + 抽屉** | ✅ | `frontend/src/components/ConversationList.tsx`（新建按钮 / 列表 / 当前高亮 / hover 删除 confirm；空态 EmptyState）+ `frontend/src/components/Drawer.tsx`（mobile 抽屉：backdrop 点击关闭 + ESC 关闭 + body 滚动锁定 + role=dialog + 自动聚焦首个 focusable） + `ConversationList.test.tsx`（7 用例） |
+| **会话集成到 App（移动端汉堡 + 桌面端侧栏）** | ✅ | `frontend/src/App.tsx`（`hidden lg:block` 桌面侧栏；`< lg` 汉堡按钮 + Drawer；切换会话恢复 messages；新建会话按钮 + handleSwitchConversation） |
+| **消息操作 MessageActions** | ✅ | `frontend/src/components/MessageActions.tsx`（4 个按钮：复制 / 重新生成 / 点赞 / 点踩；hover 显示；复制成功后 ✓ 1s；点赞/点踩 aria-pressed；可受控 feedback） + `.test.tsx`（10 用例） |
+| **消息操作集成到 App** | ✅ | `frontend/src/App.tsx`（assistant 消息右下角 MessageActions；regenerate 删最后 assistant 后重新 send；thumbUp→rating=5 / thumbDown→rating=2 调 api.feedback；本地 feedback 状态写入 UiMsg.feedback） |
+| **bundle 拆分（manualChunks）** | ✅ | `frontend/vite.config.ts`（`react-vendor`（react/react-dom/react-router-dom） + `markdown`（react-markdown + remark/rehype 插件 + highlight.js + dompurify）；main entry 547.90KB < 800KB 预算） |
+| **前端测试 135 用例 / 15 文件 全绿** | ✅ | `npm run test`（PR3 = 66 + PR4 + 69 = **135 PASS / 0 FAIL**；Markdown 18 + CodeBlock 8 + useTypewriter 9 + useConversations 17 + ConversationList 7 + MessageActions 10 = 69 用例） |
+| **前端 build 通过（主包 547.90 KB < 800KB）** | ✅ | `npm run build`（main entry 547.90 KB / 151.38 KB gz；react-vendor 162.23 KB；markdown chunk 341.28 KB；CSS 29.90 KB；vite v5.4.21） |
+| **README 更新** | ✅ | `frontend/README.md`（技术栈加 react-markdown；目录加 components/{Markdown,CodeBlock,ConversationList,Drawer,MessageActions} + hooks/{useTypewriter,useConversations}；新增"Markdown 与 XSS 防护"/"多会话历史"/"消息操作" 三节） |
+
+### PR4 测试用例新增（69 用例）
+
+| 文件 | 用例数 | 关键覆盖 |
+|---|---|---|
+| `src/components/Markdown.test.tsx` | 18 | **XSS 5 用例**（script/onerror/javascript:/iframe/svg onload）+ 标题/列表/表格/引用/行内 code/代码块/链接/GFM + 契约 3 |
+| `src/components/CodeBlock.test.tsx` | 8 | 渲染 / 语言识别 / 复制 / skip / clipboard 降级 / 错误 / a11y |
+| `src/hooks/useTypewriter.test.ts` | 9 | 初始 / 推进 / 完成 / skip / reset / disabled / 缩短 / 变长 / 空 |
+| `src/hooks/useConversations.test.ts` | 17 | CRUD / 派生 / FIFO 50 / 边界 / 降级 / 损坏 / 跨实例 |
+| `src/components/ConversationList.test.tsx` | 7 | 渲染 / 新建 / 切换 / 删除 confirm / 高亮 |
+| `src/components/MessageActions.test.tsx` | 10 | 4 按钮 / 复制 / regenerate / thumb 切换 / 受控 / 取消 |
+| **PR4 合计** | **69 用例 / 6 文件** | **XSS 5 用例 100% 通过** |
+| **PR3+PR4 累计** | **135 用例 / 15 文件** | **vitest run 全绿** |
+
+### PR4 风险与回滚
+
+- **风险 1**：Markdown XSS 漏 vector → **缓解**：5 条用例必过 + rehype-sanitize 默认 schema（覆盖 script / iframe / onerror / javascript: / svg onload）；新增的 `<span className>` + `<code className>` 已扩展 schema；自动化测试在 PR 验收前必过。
+- **风险 2**：Markdown 库引入后 bundle 超 800KB → **缓解**：manualChunks 把 react-vendor + markdown 拆出；当前 main entry 547.90 KB < 800KB；markdown chunk 单独缓存。
+- **风险 3**：打字机掉帧（多 token 迅速到来） → **缓解**：每 token 间隔 20ms 适配 PRD §9.2 上限 30ms；setInterval 持续推进；skip() 提供立即跳过路径。
+- **风险 4**：localStorage 跨域 / Safari private 模式不可用 → **缓解**：try/catch 写入失败时降级到内存 state；`degraded=true` 暴露给上层做 UI 提示（如 v2.2.1 后续）。
+- **风险 5**：高亮 chunk 体积 341KB（含 highlight.js ~50+ 语言）→ **缓解**：v2.2.1 评估按需 import 子集（js / python / sql 等）；当前 PR4 不做范围控制。
+- **回滚**：Markdown 组件替换为原 `<div>{content}</div>` 即可保留 fallback；CodeBlock / MessageActions 是新增组件，删除 import 即可；useTypewriter `disabled=true` 即等同于原同步渲染；useConversations 是新增 hook，删除后回到原单会话模式。

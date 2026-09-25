@@ -1,3 +1,8 @@
+/* v2.2 PR4：代码高亮样式（highlight.js GitHub theme + 暗色覆盖）。
+ * 必须在 @tailwind directives 之前，因为 utility class 可能需要覆盖它。
+ */
+@import 'highlight.js/styles/github.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,16 +16,333 @@ html, body, #root {
   flex-direction: column;
 }
 
+/* ---------------------------------------------------------------------------
+ * v2.2 PR3：暗色模式 CSS 变量。
+ *
+ * - :root 定义 light 变量（默认）。
+ * - .dark 覆写为 dark 变量。
+ * - Tailwind 的 darkMode:'class' 让 .dark 选择器生效。
+ * - 语义色绑定 `var(--app-bg / --app-surface / --app-text / --app-brand)`，
+ *   与 tailwind.config.js 的 `bg-app-surface` / `text-app` 等 utility 对齐。
+ * --------------------------------------------------------------------------- */
+
+:root {
+  --app-bg: #f8fafc;          /* slate-50 */
+  --app-surface: #ffffff;
+  --app-surface-muted: #f1f5f9;
+  --app-border: #e2e8f0;
+  --app-text: #0f172a;
+  --app-text-muted: #64748b;
+  --app-brand: #3b82f6;
+  --shimmer-from: rgba(255, 255, 255, 0);
+  --shimmer-via: rgba(255, 255, 255, 0.6);
+  --shimmer-to: rgba(255, 255, 255, 0);
+}
+
+.dark {
+  --app-bg: #0f172a;
+  --app-surface: #1e293b;
+  --app-surface-muted: #334155;
+  --app-border: #334155;
+  --app-text: #f1f5f9;
+  --app-text-muted: #94a3b8;
+  --app-brand: #60a5fa;
+  --shimmer-from: rgba(255, 255, 255, 0);
+  --shimmer-via: rgba(255, 255, 255, 0.08);
+  --shimmer-to: rgba(255, 255, 255, 0);
+}
+
+/* v2.2 PR4：暗色模式下代码块走 GitHub Dark 色系（避免白色背景刺眼） */
+.dark .hljs {
+  background: #0d1117;
+  color: #c9d1d9;
+}
+.dark .hljs-comment,
+.dark .hljs-quote { color: #8b949e; font-style: italic; }
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-literal,
+.dark .hljs-section,
+.dark .hljs-link { color: #ff7b72; }
+.dark .hljs-function .hljs-keyword { color: #ff7b72; }
+.dark .hljs-subst { color: #c9d1d9; }
+.dark .hljs-string,
+.dark .hljs-title,
+.dark .hljs-name,
+.dark .hljs-type,
+.dark .hljs-attribute,
+.dark .hljs-symbol,
+.dark .hljs-bullet,
+.dark .hljs-addition,
+.dark .hljs-variable,
+.dark .hljs-template-tag,
+.dark .hljs-template-variable { color: #a5d6ff; }
+.dark .hljs-built_in,
+.dark .hljs-builtin-name { color: #ffa657; }
+.dark .hljs-number,
+.dark .hljs-meta { color: #79c0ff; }
+.dark .hljs-deletion { color: #ffdcd7; background-color: #67060c; }
+.dark .hljs-emphasis { font-style: italic; }
+.dark .hljs-strong { font-weight: 700; }
+
+/* body 跟随语义背景 / 文字 */
+body {
+  background-color: var(--app-bg);
+  color: var(--app-text);
+}
+
+/* ---------------------------------------------------------------------------
+ * v2.2 PR3：chat bubble（保留 PR1 + PR2 视觉，叠加 dark mode 适配）
+ * --------------------------------------------------------------------------- */
+
 .bubble-user {
-  @apply bg-brand-500 text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[75%] self-end whitespace-pre-wrap;
+  @apply text-white rounded-2xl rounded-br-sm px-4 py-2 max-w-[75%] self-end whitespace-pre-wrap;
+  background-color: var(--app-brand);
 }
 .bubble-assistant {
-  @apply bg-white border border-slate-200 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[75%] self-start whitespace-pre-wrap shadow-sm;
+  @apply rounded-2xl rounded-bl-sm px-4 py-2 max-w-[75%] self-start whitespace-pre-wrap shadow-sm;
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
 }
 .bubble-agent {
-  @apply bg-emerald-50 border border-emerald-200 rounded-2xl rounded-bl-sm px-4 py-2 max-w-[75%] self-start whitespace-pre-wrap shadow-sm;
+  @apply rounded-2xl rounded-bl-sm px-4 py-2 max-w-[75%] self-start whitespace-pre-wrap shadow-sm;
+  background-color: var(--app-surface-muted);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
 }
 
 .tag {
   @apply inline-block text-xs px-2 py-0.5 rounded-full mr-1;
+}
+
+/* ---------------------------------------------------------------------------
+ * v2.2 PR3：Skeleton shimmer 动画
+ *
+ * - 由 index.css 内联 @keyframes，避免 tailwind.config 的 safelist 维护。
+ * - 配合 Skeleton 组件的 `.ic-skeleton-shimmer` 使用。
+ * --------------------------------------------------------------------------- */
+
+@keyframes ic-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.ic-skeleton-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--shimmer-from) 0%,
+    var(--shimmer-via) 50%,
+    var(--shimmer-to) 100%
+  );
+  background-size: 200% 100%;
+  animation: ic-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ---------------------------------------------------------------------------
+ * v2.2 PR3：a11y focus ring（统一基线，PRD §9.1.1）
+ *
+ * - 仅键盘聚焦时显示（focus-visible），鼠标点击不出现。
+ * - 蓝色环 + 2px offset，contrast 满足 WCAG AA。
+ * --------------------------------------------------------------------------- */
+
+*:focus {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--app-brand);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * v2.2 PR3：响应式工具补充
+ *
+ * - 表格在 mobile 下水平滚动（admin 后台表格）。
+ * - admin layout 在 mobile 下隐藏侧栏。
+ * --------------------------------------------------------------------------- */
+
+.table-responsive {
+  @apply overflow-x-auto;
+}
+
+/* ---------------------------------------------------------------------------
+ * v2.2 PR4：Markdown 渲染样式（react-markdown 默认 output 容器）。
+ *
+ *  作用范围：`.ic-markdown` 内（避免污染全局）。
+ *  支持元素：标题 / 段落 / 列表 / 链接 / 表格 / 引用 / 行内 code / 代码块。
+ *  代码块由 rehype-highlight 输出 `.hljs` 类，复制按钮通过 CodeBlock 组件注入。
+ * --------------------------------------------------------------------------- */
+
+.ic-markdown {
+  color: var(--app-text);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.ic-markdown > *:first-child {
+  margin-top: 0;
+}
+.ic-markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.ic-markdown h1,
+.ic-markdown h2,
+.ic-markdown h3,
+.ic-markdown h4 {
+  margin: 0.75em 0 0.4em;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--app-text);
+}
+.ic-markdown h1 { font-size: 1.25rem; }
+.ic-markdown h2 { font-size: 1.125rem; }
+.ic-markdown h3 { font-size: 1rem; }
+.ic-markdown h4 { font-size: 0.875rem; }
+
+.ic-markdown p {
+  margin: 0.5em 0;
+}
+
+.ic-markdown a {
+  color: var(--app-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ic-markdown a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.ic-markdown ul,
+.ic-markdown ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+.ic-markdown li {
+  margin: 0.15em 0;
+}
+
+.ic-markdown blockquote {
+  margin: 0.5em 0;
+  padding: 0.25em 0.75em;
+  border-left: 3px solid var(--app-border);
+  color: var(--app-text-muted);
+  background: var(--app-surface-muted);
+  border-radius: 0.25rem;
+}
+
+.ic-markdown table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+  font-size: 0.8125rem;
+}
+.ic-markdown th,
+.ic-markdown td {
+  border: 1px solid var(--app-border);
+  padding: 0.35em 0.6em;
+  text-align: left;
+}
+.ic-markdown th {
+  background: var(--app-surface-muted);
+  font-weight: 600;
+}
+
+.ic-markdown hr {
+  border: none;
+  border-top: 1px solid var(--app-border);
+  margin: 0.75em 0;
+}
+
+.ic-markdown code:not(pre code) {
+  background: var(--app-surface-muted);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  border-radius: 0.25rem;
+  padding: 0.05em 0.35em;
+  font-size: 0.8125em;
+  font-family: var(--app-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+}
+
+/* 代码块容器（由 CodeBlock 组件包裹） */
+.ic-code-block {
+  position: relative;
+  margin: 0.5em 0;
+  border: 1px solid var(--app-border);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #f6f8fa;
+}
+
+.dark .ic-code-block {
+  background: #0d1117;
+}
+
+.ic-code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  background: var(--app-surface-muted);
+  border-bottom: 1px solid var(--app-border);
+  font-size: 0.6875rem;
+  color: var(--app-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.ic-code-block-copy {
+  font-family: inherit;
+  font-size: 0.6875rem;
+  background: var(--app-surface);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.ic-code-block-copy:hover {
+  background: var(--app-surface-muted);
+}
+
+.ic-code-block-copy:focus-visible {
+  outline: 2px solid var(--app-brand);
+  outline-offset: 1px;
+}
+
+.ic-code-block pre {
+  margin: 0;
+  padding: 0.75rem;
+  overflow-x: auto;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: transparent;
+}
+
+.ic-code-block pre code.hljs {
+  background: transparent;
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* 流式打字机光标（1Hz 闪烁） */
+.ic-typewriter-cursor {
+  display: inline-block;
+  width: 0.5ch;
+  margin-left: 1px;
+  color: var(--app-brand);
+  animation: ic-cursor-blink 1s steps(2, start) infinite;
+}
+
+@keyframes ic-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
