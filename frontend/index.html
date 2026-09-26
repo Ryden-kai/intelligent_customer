@@ -3,9 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- v2.2 PR3：meta theme-color（移动浏览器顶栏颜色，dark mode 切换时由 useTheme 同步写入） -->
+    <meta name="theme-color" content="#ffffff" />
+
+    <!-- v2.2 PR1：前端兜底 CSP meta tag（与后端 middleware.SecurityHeaders 双重防护）。
+         在 Cloudflare Pages / nginx 反代尚未配置 CSP 头前由浏览器直接读取。
+         注意：meta CSP 不能设 frame-ancestors / sandbox / report-uri 等 directive，
+         那些仍需 HTTP 头下发。-->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; base-uri 'self'; form-action 'self'"
+    />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+
     <title>智能客服 Agent</title>
+
+    <!-- v2.2 PR1 + PR3：pre-paint theme script。在 CSS 加载前同步执行，避免 dark mode FOUC。
+         PR1 仅放占位（基础设施），PR3 已完成完整 useTheme hook 让组件响应。
+         本脚本只确保 .dark class 可被 Tailwind darkMode:'class' 识别。-->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('ic.theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var theme = stored || (prefersDark ? 'dark' : 'light');
+          if (theme === 'dark' || (theme === 'system' && prefersDark)) {
+            document.documentElement.classList.add('dark');
+            document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0f172a');
+          }
+        } catch (e) {
+          /* localStorage 不可用（Safari 隐私模式等）时静默忽略，保持 light 默认。*/
+        }
+      })();
+    </script>
   </head>
-  <body class="bg-slate-50">
+  <body class="bg-app-bg text-app-text">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

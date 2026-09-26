@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 
+	"intelligent_customer/backend/internal/agent"
 	"intelligent_customer/backend/internal/auth"
 	"intelligent_customer/backend/internal/config"
 	"intelligent_customer/backend/internal/handler"
@@ -21,6 +22,7 @@ import (
 	"intelligent_customer/backend/internal/repo"
 	"intelligent_customer/backend/internal/security"
 	"intelligent_customer/backend/internal/service"
+	"intelligent_customer/backend/internal/skill"
 	"intelligent_customer/backend/internal/testutil"
 )
 
@@ -28,6 +30,9 @@ type stubLLM struct{ content string }
 
 func (s *stubLLM) Chat(_ context.Context, _ string, _ []llm.Message) (string, error) {
 	return s.content, nil
+}
+func (s *stubLLM) ToolChat(_ context.Context, _ string, _ []llm.Message, _ []llm.ToolDef) (llm.ToolChatResult, error) {
+	return llm.ToolChatResult{Content: s.content}, nil
 }
 func (s *stubLLM) Identity() llm.Model { return llm.Model{Provider: "stub", Name: "stub"} }
 
@@ -56,12 +61,14 @@ func newServer(t *testing.T) (http.Handler, *auth.Issuer, func()) {
 
 	authH := &handler.AuthHandlers{Issuer: issuer, Admins: admins, Logger: zerolog.Nop()}
 	adminSvc := &service.Admin{Convs: repo.NewConversations(conn), Msgs: repo.NewMessages(conn), Feedback: repo.NewFeedback(conn), Logger: zerolog.Nop()}
-	chatSvc := &service.Chat{
+	registry := skill.NewRegistry()
+	chatSvc := &service.AgentChat{
 		Convs: repo.NewConversations(conn), Msgs: repo.NewMessages(conn), Feedbacks: repo.NewFeedback(conn),
-		FAQs: repo.NewFAQs(conn), Signals: repo.NewHandoverSignals(conn),
-		LLM: &stubLLM{content: "AI"}, JEV: jev.New(config.Config{}, zerolog.Nop()),
+		Registry: registry, Invocations: skill.NewInvocations(conn), Tickets: skill.NewTickets(conn),
+		LLM:         &stubLLM{content: "AI"},
 		HandoverCfg: service.HandoverConfig{ConfidenceThreshold: 0.55, SignalCountLimit: 3},
-		Logger: zerolog.Nop(),
+		Cfg:         agent.DefaultConfig(),
+		Logger:      zerolog.Nop(),
 	}
 	fbSvc := &service.Feedback{
 		Convs: repo.NewConversations(conn), Feedback: repo.NewFeedback(conn), Msgs: repo.NewMessages(conn),
@@ -94,12 +101,25 @@ func TestChatHandlerSuccess(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status: %d, body=%s", w.Code, w.Body.String())
 	}
-	var resp map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatal(err)
+	// NDJSON response: every line is a JSON event. Parse them one by one
+	// and assert at least one terminal event (final | handover | done)
+	// appears.
+	var seenTerminal bool
+	for _, line := range strings.Split(strings.TrimSpace(w.Body.String()), "\n") {
+		if line == "" {
+			continue
+		}
+		var ev map[string]any
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatalf("bad ndjson line %q: %v", line, err)
+		}
+		typ, _ := ev["type"].(string)
+		if typ == "final" || typ == "handover" || typ == "done" {
+			seenTerminal = true
+		}
 	}
-	if resp["source"] == nil {
-		t.Fatalf("missing source field: %s", w.Body.String())
+	if !seenTerminal {
+		t.Fatalf("no terminal event in NDJSON stream: %s", w.Body.String())
 	}
 }
 

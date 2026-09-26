@@ -10,9 +10,10 @@
 - React 18 + Vite 5 + TypeScript
 - Tailwind CSS（darkMode:'class'）
 - axios + React Router 6
-- recharts（管理后台满意度图表）
+- recharts（管理后台图表；**v2.2 PR5 全利用：12 图**）
 - **react-markdown + remark-gfm + rehype-highlight + rehype-sanitize + highlight.js + dompurify**（v2.2 PR4：Markdown 渲染 + 代码高亮 + XSS sanitize）
 - **Vitest + @testing-library/react + jsdom**（v2.2 PR3 起；前端单测框架）
+- **EventSource + 通用 hooks（v2.2 PR5：useSSE / useBatchSelection / useExportCsv）**
 
 ## 目录
 
@@ -30,17 +31,17 @@ frontend/
 ├── src/
 │   ├── main.tsx           # 全局 ErrorBoundary 包裹
 │   ├── App.tsx            # 聊天界面（PR3 + PR4：Markdown + 打字机 + 多会话 + 消息操作）
-│   ├── admin/             # 管理后台（PR3：a11y + Skeleton + EmptyState + 响应式表格）
+│   ├── admin/             # 管理后台（PR3：a11y + Skeleton + EmptyState + 响应式表格；**PR5：12 图 + SSE + CSV + 批量 + 高级筛选**）
 │   │   ├── AdminApp.tsx           # 暗色切换 + 移动端汉堡菜单
-│   │   ├── ConversationListPage.tsx
+│   │   ├── ConversationListPage.tsx  # v2.2 PR5：CSV 导出 + 批量打标 + 4 维筛选 + 状态饼图
 │   │   ├── ConversationDetailPage.tsx
-│   │   ├── StatsPage.tsx
-│   │   ├── SkillsPage.tsx
-│   │   ├── JevTemplatesPage.tsx
-│   │   ├── JevObservabilityPage.tsx
-│   │   ├── RolesPage.tsx          # v2.2 PR2 + PR3 a11y
-│   │   ├── AuditLogPage.tsx       # v2.2 PR2 + PR3 a11y
-│   │   └── RateLimitConfigPage.tsx # v2.2 PR2 + PR3 a11y
+│   │   ├── StatsPage.tsx            # v2.2 PR5：4 图（决策分布 + 接受率趋势 + P95 趋势 + 模板热度 Top10）+ SSE 实时
+│   │   ├── SkillsPage.tsx           # v2.2 PR5：1 图 + 批量启停
+│   │   ├── JevTemplatesPage.tsx     # v2.2 PR5：1 图 + 批量归档
+│   │   ├── JevObservabilityPage.tsx # v2.2 PR5：2 图 + CSV + 批量归档 + 5 维筛选 + SSE 实时
+│   │   ├── RolesPage.tsx            # v2.2 PR2 + PR3 a11y + PR5：1 图（权限数柱状图）
+│   │   ├── AuditLogPage.tsx         # v2.2 PR2 + PR3 a11y + PR5：1 图（Action 分布 Top8）
+│   │   └── RateLimitConfigPage.tsx  # v2.2 PR2 + PR3 a11y
 │   ├── components/        # 共享 UI 组件
 │   │   ├── ErrorBoundary.tsx
 │   │   ├── Skeleton.tsx           # v2.2 PR3：loading 骨架
@@ -50,17 +51,23 @@ frontend/
 │   │   ├── CodeBlock.tsx          # v2.2 PR4：代码块（语言标签 + 复制按钮 + a11y）
 │   │   ├── ConversationList.tsx   # v2.2 PR4：多会话侧栏 / 列表
 │   │   ├── Drawer.tsx             # v2.2 PR4：移动端抽屉
-│   │   └── MessageActions.tsx     # v2.2 PR4：消息操作（复制 / 重试 / 👍 / 👎）
+│   │   ├── MessageActions.tsx     # v2.2 PR4：消息操作（复制 / 重试 / 👍 / 👎）
+│   │   ├── FilterPanel.tsx        # v2.2 PR5：通用高级筛选（日期/枚举/数值/关键词）
+│   │   ├── LiveBadge.tsx          # v2.2 PR5：SSE 实时刷新指示器（4 态）
+│   │   └── ChartContainer.tsx     # v2.2 PR5：recharts 包装 + 暗色兼容 + PALETTE
 │   ├── design/            # v2.2 PR3：设计令牌
 │   │   └── tokens.ts
 │   ├── hooks/             # 自定义 hooks
 │   │   ├── useTheme.ts            # v2.2 PR3：暗色 hook
 │   │   ├── useTypewriter.ts       # v2.2 PR4：流式打字机 hook
-│   │   └── useConversations.ts    # v2.2 PR4：多会话历史 hook（localStorage 50 条 FIFO）
+│   │   ├── useConversations.ts    # v2.2 PR4：多会话历史 hook（localStorage 50 条 FIFO）
+│   │   ├── useSSE.ts              # v2.2 PR5：SSE hook（EventSource + 自动重连 + polling 降级）
+│   │   ├── useBatchSelection.ts   # v2.2 PR5：通用多选状态（Set-backed O(1) 操作）
+│   │   └── useExportCsv.ts        # v2.2 PR5：CSV 导出 hook（fetch blob + download + 401/403 错误处理）
 │   ├── test/              # vitest setup
-│   │   └── setup.ts
-│   ├── api.ts             # axios 客户端 + Jev API (v2.1) + RBAC/Audit/RateLimit (v2.2 PR2)
-│   ├── types.ts           # 含 JevTemplate / JevDecision / JevStats / RBAC / Audit / RateLimit
+│   │   └── setup.ts                # v2.2 PR5：+ ResizeObserver / EventSource polyfill
+│   ├── api.ts             # axios 客户端 + Jev API (v2.1) + RBAC/Audit/RateLimit (v2.2 PR2) + SSE/CSV/bulk (v2.2 PR5)
+│   ├── types.ts           # 含 JevTemplate / JevDecision / JevStats / RBAC / Audit / RateLimit / SSE / BulkResponse (v2.2 PR5)
 │   └── index.css          # Tailwind + 暗色 CSS 变量 + shimmer animation + focus ring + highlight.js GitHub theme + Markdown 容器样式
 └── index.html             # pre-paint theme script + CSP meta
 ```
@@ -104,13 +111,13 @@ frontend/
 - `skip()` 立即显示全文；`reset()` 清空。
 - assistant 消息自动接入（`AssistantContent` 组件）。
 
-## Bundle 拆分（v2.2 PR4）
+## Bundle 拆分（v2.2 PR4 + PR5）
 
 `vite.config.ts` 配置 `manualChunks`：
 
 - `react-vendor`：React / ReactDOM / React Router。
 - `markdown`：Markdown 渲染栈（含 highlight.js ~341KB，独立缓存）。
-- 主 entry：547.90 KB < 800KB 预算（gz 151.38 KB）。
+- 主 entry：**PR5 = 614.76 KB / 166.39 KB gz** < 800 KB 预算（PR4 = 547.90 KB → PR5 +66 KB，recharts 12 图与新 hooks）。
 
 ## 开发
 
@@ -132,19 +139,107 @@ npm run test:coverage     # 带 coverage 报告
 
 Vitest + jsdom + @testing-library/react。测试文件命名：`*.test.{ts,tsx}` / `*.spec.{ts,tsx}`，放在对应源文件同目录。
 
-当前测试套件（v2.2 PR3，9 文件 / 66 用例）：
+当前测试套件（v2.2 PR3 + PR4 + PR5，**21 文件 / 166 用例**）：
 
 | 文件 | 用例 | 覆盖 |
 |---|---|---|
 | `design/tokens.test.ts` | 21 | 5 组 token 齐全 + 取值合规 |
 | `hooks/useTheme.test.ts` | 7 | localStorage + matchMedia + 三态循环 |
+| `hooks/useTypewriter.test.ts` | 9 | 初始 / 推进 / 完成 / skip / reset / disabled |
+| `hooks/useConversations.test.ts` | 17 | CRUD + FIFO 50 + 降级 + 损坏 |
+| `hooks/useSSE.test.ts` | 5 | connect / retry / polling fallback / reconnect / unmount（PR5） |
+| `hooks/useBatchSelection.test.ts` | 6 | toggle / selectAll / clear / isSelected / initial（PR5） |
+| `hooks/useExportCsv.test.ts` | 5 | blob 下载 / 自定义 prefix / token header / 错误 / 跳过空参（PR5） |
 | `components/ThemeToggle.test.tsx` | 7 | 渲染 + 点击切换 + localStorage 联动 |
 | `components/Skeleton.test.tsx` | 10 | 3 形态 + count + a11y |
 | `components/EmptyState.test.tsx` | 10 | 3 态 + 自定义 + a11y |
 | `components/ErrorBoundary.test.tsx` | 5 | happy / error / fallback / scope / 唯一 ID |
+| `components/Markdown.test.tsx` | 18 | 5 XSS 用例 + 标题/列表/表格/引用/行内 code/代码块 |
+| `components/CodeBlock.test.tsx` | 8 | 渲染 / 复制 / fallback / 错误 / a11y |
+| `components/ConversationList.test.tsx` | 7 | 渲染 / 新建 / 切换 / 删除 confirm / 高亮 |
+| `components/MessageActions.test.tsx` | 10 | 4 按钮 / 复制 / regenerate / thumb |
+| `components/FilterPanel.test.tsx` | 7 | labels / options / onApply / onReset / datetime / text+placeholder / number+min+max（PR5） |
+| `components/LiveBadge.test.tsx` | 5 | 4 态 + 最后刷新时间（PR5） |
+| `components/ChartContainer.test.tsx` | 3 | title / 无 title / PALETTE（PR5） |
 | `admin/RolesPage.test.tsx` | 2 | 渲染 + mock 数据加载 |
 | `admin/AuditLogPage.test.tsx` | 2 | 渲染 + 5 筛选字段 |
 | `admin/RateLimitConfigPage.test.tsx` | 2 | 渲染 + 编辑入口 |
+
+## 实时刷新 SSE（v2.2 PR5）
+
+`useSSE(url, options)` hook 包装 `EventSource`：
+
+- 自动重连（max retries + retryMs 可配）
+- 可选 polling fallback（EventSource 不可用时降级到 `setInterval(fetch(url))）
+- `reconnect()` 强制重试
+- 默认写入 `Authorization` 到 query（EventSource 不支持自定义 header）
+
+```ts
+const sse = useSSE('/api/admin/stream', {
+  retryMs: 3000,
+  maxRetries: 5,
+  pollingUrl: '/api/admin/jev/stats',
+  pollingIntervalMs: 5000,
+});
+// sse.lastEvent / sse.connected / sse.polling / sse.error
+```
+
+后端 `GET /api/admin/stream` 由 `internal/sse/handler.go` 实现：
+- per-tenant pub/sub（Broker）+ `X-Accel-Buffering: no`（nginx 友好）
+- 不需要 server 心跳（PRD Q-C：靠 EventSource 自动重连）
+
+## CSV 流式导出（v2.2 PR5）
+
+`useExportCsv` hook：
+
+```ts
+const { loading, error, trigger } = useExportCsv();
+await trigger(api.conversations.exportUrl({ status }), {
+  filenamePrefix: 'conversations',
+  token: getToken(),
+});
+```
+
+后端 4 处 CSV 端点（UTF-8 BOM + RFC 4180）：
+
+| 端点 | 权限 |
+|---|---|
+| `GET /api/admin/audit/export` | `audit.export`（PR2） |
+| `GET /api/admin/jev/decisions/export` | `jev.decision.read`（PR5） |
+| `GET /api/admin/conversations/export` | `conversation.export`（PR5） |
+| `GET /api/admin/skills/export` | `skills.read`（PR2 — 待 PR5 接入） |
+
+## 批量操作（v2.2 PR5）
+
+3 处通用批量操作模式：
+
+| 页面 | 端点 | 上限 |
+|---|---|---|
+| `JevTemplatesPage` | `POST /api/admin/jev/templates/archive-batch` | 200 |
+| `ConversationListPage` | `POST /api/admin/conversations/tag-batch` | 500 |
+| `SkillsPage` | `POST /api/admin/skills/toggle-batch` | 200 |
+
+所有批量端点返回 `{total, succeeded, results: [{id, status, error?}]}`，**idempotent**：未变化的状态视为 success 但不写 audit。
+
+## 高级筛选（v2.2 PR5）
+
+`<FilterPanel filters fields onApply onReset />` 通用组件：
+
+```ts
+<FilterPanel
+  filters={filter}
+  fields={[
+    { id: 'from', label: '起始时间', type: 'datetime' },
+    { id: 'status', label: '状态', type: 'select', options: [...] },
+    { id: 'keyword', label: '关键词', type: 'text', placeholder: '...' },
+    { id: 'score_min', label: '最低分', type: 'number', min: 0, max: 100 },
+  ]}
+  onApply={(next) => { setFilter(next); reload(); }}
+  onReset={() => { setFilter(EMPTY); reload(); }}
+/>
+```
+
+`JevObservabilityPage` 用 5 维（from/to/template/label/actor_id + score 范围），`ConversationListPage` 用 4 维 + 客户端 keyword 二次过滤。
 
 ## 构建
 

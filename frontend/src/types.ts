@@ -348,3 +348,32 @@ export const AUDIT_ACTIONS = [
   'ratelimit.config.update',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+// ---------------------------------------------------------------------------
+// v2.2 PR5: SSE / CSV export / bulk operations
+// ---------------------------------------------------------------------------
+
+/** Payload of the "stats_update" SSE event. */
+export interface SSEStatsSnapshot {
+  timestamp: string;
+  total_decisions: number;
+  fallback_rate: number;
+  p95_ms: number;
+  accept_rate: number;
+  by_template?: { template: string; count: number; fallback: number }[];
+}
+
+/** Result of a bulk operation (success / partial failure). */
+export interface BulkResult {
+  id: string;
+  status: 'ok' | 'archived' | 'tagged' | 'not_found' | 'unchanged' | 'error';
+  error?: string;
+}
+
+export interface BulkResponse {
+  total: number;
+  succeeded: number;
+  results: BulkResult[];
+  /** Some bulk endpoints return extra fields (e.g. `enabled` for skills). */
+  enabled?: boolean;
+}

@@ -1,0 +1,23 @@
+# sensitive_check.yaml — ⑤ 敏感词 / 合规
+# 触发点：消息入库前 / Agent 回复入库前
+# 输出：choice（clean | sensitive | violate）
+# 兜底：sensitive（保守判断，触发人工二审）
+name: sensitive_check
+version: 1
+description: 消息 / 回复敏感词与合规判断（通用版）
+trigger: message.pre_ingest
+output_type: choice
+labels:
+  - clean       # 正常
+  - sensitive   # 敏感（需二次人工审核）
+  - violate     # 违规（直接阻断 + 转人工 + 告警）
+template: |
+  判断下列内容是否包含敏感或违规信息。
+
+  待审内容：{{.content}}
+  {{if .context}}上下文：{{.context}}{{end}}
+
+  输出 JSON：{"label": "clean|sensitive|violate", "score": 0.0-1.0, "reason": "..."}
+fallback:
+  type: conservative
+  value: sensitive   # 兜底保守判断为 sensitive（人工再审）

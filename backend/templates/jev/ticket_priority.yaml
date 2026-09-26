@@ -1,0 +1,26 @@
+# ticket_priority.yaml — ④ 工单优先级
+# 触发点：工单创建时
+# 输出：choice（p0/p1/p2/p3）
+# 兜底：p2（中等优先级）
+name: ticket_priority
+version: 1
+description: 新工单自动分级（通用版）
+trigger: ticket.create
+output_type: choice
+labels:
+  - p0    # 紧急（10min 内响应，2h 内解决）
+  - p1    # 高（30min 内响应，8h 内解决）
+  - p2    # 中（2h 内响应，24h 内解决）
+  - p3    # 低（24h 内响应，72h 内解决）
+template: |
+  判断工单的紧急度。
+
+  工单类型：{{.ticket_type}}
+  工单描述：{{.description}}
+  客户等级：{{.customer_tier}}
+  关键词紧急度：{{.urgency_keywords}}
+
+  输出 JSON：{"label": "p0|p1|p2|p3", "score": 0.0-1.0, "reason": "..."}
+fallback:
+  type: default
+  value: p2

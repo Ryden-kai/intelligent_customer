@@ -1,0 +1,29 @@
+# intent_routing.yaml — ① 意图路由
+# 触发点：每条用户消息入口
+# 输出：choice（label + score）
+# 兜底：chitchat（让 LLM 接续对话）
+name: intent_routing
+version: 1
+description: 用户消息入口意图识别（通用版）
+trigger: message.entry
+output_type: choice
+labels:
+  - order           # 订单查询
+  - refund          # 退款
+  - coupon          # 优惠券
+  - faq             # FAQ / 知识查询
+  - chitchat        # 闲聊
+  - sensitive       # 敏感内容（转敏感词二次判断）
+  - complaint       # 投诉（转人工优先）
+  - out_of_scope    # 超出能力范围
+template: |
+  判断用户当前这条消息的咨询意图，从 label 中选择最匹配的一个。
+  注意：忽略寒暄，只看最新诉求。
+
+  用户消息：{{.message}}
+  {{if .history}}历史对话：{{.history}}{{end}}
+
+  输出 JSON：{"label": "<label>", "score": 0.0-1.0}
+fallback:
+  type: default
+  value: chitchat

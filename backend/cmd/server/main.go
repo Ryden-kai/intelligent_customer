@@ -45,6 +45,7 @@ import (
 	"intelligent_customer/backend/internal/server"
 	"intelligent_customer/backend/internal/service"
 	"intelligent_customer/backend/internal/skill"
+	"intelligent_customer/backend/internal/sse"
 	"intelligent_customer/backend/internal/tenant"
 )
 
@@ -383,9 +384,9 @@ func run() error {
 		Logger:         jevLogger,
 	}
 
-	// ---- v2.2 PR2: AuditLogger + RBAC + RateLimit --------------------
-	// PR2 默认启用：EnableRBAC / EnableRateLimit 通过 cfg 字段或硬编码控制。
-	// 安全策略：基础设施层在生产全开；测试场景下也可关（main_test.go 里赋 false）。
+// ---- v2.2 PR2: AuditLogger + RBAC + RateLimit --------------------
+// PR2 默认启用：EnableRBAC / EnableRateLimit 通过 cfg 字段或硬编码控制。
+// 安全策略：基础设施层在生产全开；测试场景下也可关（main_test.go 里赋 false）。
 	auditRepo := audit.NewRepo(conn)
 	auditLogger, err := audit.NewLogger(auditRepo, logger)
 	if err != nil {
@@ -400,6 +401,16 @@ func run() error {
 		return fmt.Errorf("ratelimit map: %w", err)
 	}
 	logger.Info().Msg("ratelimit_map_ready")
+
+	// v2.2 PR5: SSE broker + handler for admin realtime refresh.
+	sseBroker := sse.NewBroker()
+	sseHandler := &sse.Handler{
+		Broker:           sseBroker,
+		DecisionRepo:     decisionsRepo,
+		Logger:           httpLogger,
+		SnapshotInterval: 5 * time.Second,
+	}
+	logger.Info().Msg("sse_broker_ready")
 
 	rbacAdminH := &handler.AdminRBAC{
 		Repo:      rbacRepo,
@@ -461,6 +472,10 @@ func run() error {
 		AuditLogger:     auditLogger,
 		EnableRBAC:      true,  // PR2 默认开启 RBAC gate
 		EnableRateLimit: true,  // PR2 默认开启 RateLimit 5 类端点
+		// v2.2 PR5 增量字段：
+		SSEBroker:       sseBroker,
+		SSEHandler:      sseHandler,
+		EnableSSE:       true,  // PR5 默认开启 SSE 端点
 		SignatureOpts: &middleware.SignatureOptions{
 			Secret:    []byte(cfg.JWTSecret),
 			Nonces:    nonces,

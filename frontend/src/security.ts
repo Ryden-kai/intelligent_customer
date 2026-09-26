@@ -9,6 +9,13 @@
 //   2. HTTPS is enforced end-to-end so the headers can't be sniffed
 // In production rotate the secret via env + redeploy both ends together.
 
+// Dev-only fallback. MUST match the backend's default JWT_SECRET (see
+// backend/.env.example) so `npm run dev` works out of the box without
+// copying .env.example → .env. In production builds (import.meta.env.DEV
+// === false), the code below will throw if VITE_API_SIGN_SECRET is not
+// set, forcing the operator to configure the real production secret.
+const DEFAULT_DEV_SIGN_SECRET = 'dev-secret-please-change-in-production-must-be-32b';
+
 const enc = new TextEncoder();
 
 function toHex(bytes: ArrayBuffer | Uint8Array): string {
@@ -52,7 +59,13 @@ export interface SignedHeaders {
 }
 
 export async function sign(method: string, url: string, body: string): Promise<SignedHeaders> {
-  const secret = (import.meta.env.VITE_API_SIGN_SECRET as string | undefined) ?? '';
+  const envSecret = (import.meta.env.VITE_API_SIGN_SECRET as string | undefined)?.trim();
+  if (!envSecret && !import.meta.env.DEV) {
+    throw new Error(
+      'VITE_API_SIGN_SECRET is required in production builds. Set it in frontend/.env before bundling.',
+    );
+  }
+  const secret = envSecret || DEFAULT_DEV_SIGN_SECRET;
   const u = new URL(url, window.location.origin);
   const path = u.pathname + (u.search ? u.search : '');
   const ts = Date.now();

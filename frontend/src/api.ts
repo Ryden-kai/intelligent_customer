@@ -22,6 +22,7 @@ import type {
   AuditListResponse,
   RateLimitConfig,
   RateLimitListResponse,
+  BulkResponse,
 } from './types';
 import { sign } from './security';
 
@@ -210,6 +211,63 @@ export const api = {
         description?: string;
       },
     ) => base.put<RateLimitConfig>(`/api/admin/ratelimit/configs/${id}`, body).then((r) => r.data),
+  },
+
+  // ---- v2.2 PR5: SSE / CSV / bulk ----
+  jev: {
+    exportDecisionsUrl: (params?: Record<string, string | number>) => {
+      const sp = new URLSearchParams();
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          if (v === '' || v === undefined || v === null) continue;
+          sp.set(k, String(v));
+        }
+      }
+      const tok = getToken();
+      if (tok) sp.set('t', tok);
+      const q = sp.toString();
+      return `${API_BASE}/api/admin/jev/decisions/export${q ? '?' + q : ''}`;
+    },
+    archiveBatch: (ids: string[]) =>
+      base
+        .post<BulkResponse>('/api/admin/jev/templates/archive-batch', { ids })
+        .then((r) => r.data),
+  },
+
+  conversations: {
+    exportUrl: (params?: Record<string, string | number>) => {
+      const sp = new URLSearchParams();
+      if (params) {
+        for (const [k, v] of Object.entries(params)) {
+          if (v === '' || v === undefined || v === null) continue;
+          sp.set(k, String(v));
+        }
+      }
+      const tok = getToken();
+      if (tok) sp.set('t', tok);
+      const q = sp.toString();
+      return `${API_BASE}/api/admin/conversations/export${q ? '?' + q : ''}`;
+    },
+    tagBatch: (ids: string[], label: string, clear = false) =>
+      base
+        .post<BulkResponse>('/api/admin/conversations/tag-batch', { ids, label, clear })
+        .then((r) => r.data),
+  },
+
+  skills: {
+    toggleBatch: (ids: string[], enabled: boolean) =>
+      base
+        .post<BulkResponse>('/api/admin/skills/toggle-batch', { ids, enabled })
+        .then((r) => r.data),
+  },
+
+  stream: {
+    /** Returns the SSE endpoint URL for the admin realtime refresh. */
+    url: () => {
+      const tok = getToken();
+      const sep = tok ? '?t=' + encodeURIComponent(tok) : '';
+      return `${API_BASE}/api/admin/stream${sep}`;
+    },
   },
 };
 

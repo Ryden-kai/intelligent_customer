@@ -20,6 +20,7 @@ import (
 	"intelligent_customer/backend/internal/middleware"
 	"intelligent_customer/backend/internal/ratelimit"
 	"intelligent_customer/backend/internal/rbac"
+	"intelligent_customer/backend/internal/sse"
 	"intelligent_customer/backend/internal/tenant"
 )
 
@@ -49,6 +50,11 @@ type Deps struct {
 	AuditLogger       *audit.Logger              // optional; 启动后台 flush goroutine
 	EnableRBAC        bool                       // 默认 false：开 PR2 RBAC gate 包装
 	EnableRateLimit   bool                       // 默认 false：开 PR2 5 类限流保护
+
+	// v2.2 PR5 增量字段：
+	SSEBroker       *sse.Broker     // optional; PR5 SSE pub/sub
+	SSEHandler      *sse.Handler    // optional; GET /api/admin/stream
+	EnableSSE       bool            // 默认 false：开 PR5 SSE 端点
 }
 
 func New(d Deps) http.Handler {
@@ -266,6 +272,42 @@ func New(d Deps) http.Handler {
 					} else {
 						r.Get("/ratelimit/configs", d.AdminRateLimit.ListConfigs)
 						r.Put("/ratelimit/configs/{id}", d.AdminRateLimit.UpdateConfig)
+					}
+				}
+
+				// ---- v2.2 PR5 增量端点：SSE + CSV + bulk ----
+				if d.EnableSSE && d.SSEHandler != nil {
+					if d.EnableRBAC {
+						r.With(rbac.RequirePermission("stats.read")).Get("/stream", d.SSEHandler.ServeHTTP)
+					} else {
+						r.Get("/stream", d.SSEHandler.ServeHTTP)
+					}
+				}
+
+				// CSV export endpoints.
+				if d.JevAdmin != nil {
+					if d.EnableRBAC {
+						r.With(rbac.RequirePermission("jev.decision.read")).Get("/jev/decisions/export", d.JevAdmin.ExportDecisions)
+						r.With(rbac.RequirePermission("jev.template.publish")).Post("/jev/templates/archive-batch", d.JevAdmin.ArchiveTemplatesBatch)
+					} else {
+						r.Get("/jev/decisions/export", d.JevAdmin.ExportDecisions)
+						r.Post("/jev/templates/archive-batch", d.JevAdmin.ArchiveTemplatesBatch)
+					}
+				}
+				if d.AdminHandler != nil {
+					if d.EnableRBAC {
+						r.With(rbac.RequirePermission("conversation.export")).Get("/conversations/export", d.AdminHandler.ExportConversations)
+						r.With(rbac.RequirePermission("conversation.write")).Post("/conversations/tag-batch", d.AdminHandler.TagConversationsBatch)
+					} else {
+						r.Get("/conversations/export", d.AdminHandler.ExportConversations)
+						r.Post("/conversations/tag-batch", d.AdminHandler.TagConversationsBatch)
+					}
+				}
+				if d.SkillAdmin != nil {
+					if d.EnableRBAC {
+						r.With(rbac.RequirePermission("skills.toggle")).Post("/skills/toggle-batch", d.SkillAdmin.ToggleBatch)
+					} else {
+						r.Post("/skills/toggle-batch", d.SkillAdmin.ToggleBatch)
 					}
 				}
 			})

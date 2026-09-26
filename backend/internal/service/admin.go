@@ -13,13 +13,15 @@ import (
 	"intelligent_customer/backend/internal/log"
 	"intelligent_customer/backend/internal/model"
 	"intelligent_customer/backend/internal/repo"
+	"intelligent_customer/backend/internal/skill"
 )
 
 type Admin struct {
-	Convs    *repo.Conversations
-	Msgs     *repo.Messages
-	Feedback *repo.Feedback
-	Logger   zerolog.Logger
+	Convs       *repo.Conversations
+	Msgs        *repo.Messages
+	Feedback    *repo.Feedback
+	Invocations *skill.Invocations
+	Logger      zerolog.Logger
 }
 
 // ListConversations supports admin UI pagination + filtering.
@@ -59,9 +61,10 @@ func (s *Admin) ListConversations(ctx context.Context, p ListConversationsParams
 }
 
 type ConversationDetail struct {
-	Conversation model.Conversation `json:"conversation"`
-	Messages     []model.Message    `json:"messages"`
-	Feedback     *model.Feedback    `json:"feedback,omitempty"`
+	Conversation    model.Conversation       `json:"conversation"`
+	Messages        []model.Message          `json:"messages"`
+	Feedback        *model.Feedback          `json:"feedback,omitempty"`
+	SkillInvocations []model.SkillInvocation `json:"skillInvocations,omitempty"`
 }
 
 func (s *Admin) GetConversation(ctx context.Context, id string) (*ConversationDetail, error) {
@@ -79,6 +82,17 @@ func (s *Admin) GetConversation(ctx context.Context, id string) (*ConversationDe
 	detail := &ConversationDetail{
 		Conversation: *c,
 		Messages:     msgs,
+	}
+	// Skill invocation audit trail (optional — agent may not have invoked
+	// any tools for this conversation).
+	if s.Invocations != nil {
+		inv, err := s.Invocations.ListByConversation(ctx, id)
+		if err != nil {
+			lg := log.With(ctx, s.Logger)
+			lg.Warn().Err(err).Str("conv_id", id).Msg("admin_load_invocations_failed")
+		} else if len(inv) > 0 {
+			detail.SkillInvocations = inv
+		}
 	}
 	return detail, nil
 }

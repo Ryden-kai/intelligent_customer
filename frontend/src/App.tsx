@@ -303,6 +303,24 @@ export default function App() {
     }
   }
 
+  /**
+   * ConversationList 调用：当用户点删除某个会话时触发。
+   * 清空聊天窗口的所有状态，避免"删了侧栏还能看到历史"的混乱体验。
+   */
+  function handleDeleteConversation(_id: string) {
+    setMessages([]);
+    setTrace([]);
+    setHandedOver(false);
+    setPendingTicket(undefined);
+    setFeedbackSubmitted(false);
+    setServerConversationId(undefined);
+    try {
+      localStorage.removeItem(CONV_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
+
   function handleSwitchConversation(id: string) {
     setCurrentId(id);
     const msgs = loadMessages(id);
@@ -361,7 +379,7 @@ export default function App() {
       <div className="flex h-full w-full">
         {/* 桌面端侧栏（≥ lg） */}
         <div className="hidden lg:block w-[280px] flex-shrink-0">
-          <ConversationList onSelect={handleSwitchConversation} />
+          <ConversationList onSelect={handleSwitchConversation} onDelete={handleDeleteConversation} />
         </div>
 
         {/* 移动端抽屉 */}
@@ -371,7 +389,7 @@ export default function App() {
           title="历史会话"
           titleId="drawer-title"
         >
-          <ConversationList onSelect={handleSwitchConversation} />
+          <ConversationList onSelect={handleSwitchConversation} onDelete={handleDeleteConversation} />
         </Drawer>
 
         {/* 主区 */}

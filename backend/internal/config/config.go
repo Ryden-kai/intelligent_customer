@@ -61,6 +61,25 @@ type Config struct {
 	SignatureNonceTTL        time.Duration
 	EncryptSensitiveFields   bool
 	EncryptionKeyExplicitHex string // optional override; otherwise HKDF(JWT_SECRET)
+
+	// Agent loop tuning.
+	AgentMaxSteps      int
+	AgentMaxTokens     int
+	AgentMaxWallclock  time.Duration
+	AgentSkillTimeout  time.Duration
+	AgentSystemPrompt  string
+
+	// Skill registry.
+	SkillDemoUserID    string
+
+	// Ticket sweeper (background job that expires stale confirm/cancel
+	// tickets after their TTL). Set to 0 to disable.
+	TicketSweepInterval time.Duration
+
+	// AppEnv — "production" / "development" / 其他。
+	// 生产环境启用错误脱敏（middleware.Sanitize）；开发环境保留 stack。
+	// 默认 "development"。
+	AppEnv string
 }
 
 type LLMChannel struct {
@@ -98,10 +117,12 @@ func Load() (*Config, error) {
 			APIKey:  getStr("OPENAI_API_KEY", ""),
 		},
 		MiniMax: LLMChannel{
-			// MiniMax cn exposes an Anthropic-compatible endpoint per
-			// https://platform.minimaxi.cn/docs/token-plan/quickstart — the
-			// URL ends in /anthropic so requests land on /v1/messages.
-			BaseURL: getStr("MiniMax_BASE_URL", "https://api.minimaxi.cn/anthropic"),
+			// minimax cn exposes an Anthropic-compatible endpoint at
+			// https://api.minimax.cn/anthropic (per the platform's
+			// 快速接入 docs). The URL ends in /anthropic so requests land
+			// on /v1/messages. NOTE: avoid the older api.minimaxi.cn
+			// host — it points to a defunct international region.
+			BaseURL: getStr("MiniMax_BASE_URL", "https://api.minimax.cn/anthropic"),
 			Model:   getStr("MiniMax_MODEL", "MiniMax-M3"),
 			APIKey:  getStr("MiniMax_API_KEY", ""),
 		},
@@ -123,6 +144,18 @@ func Load() (*Config, error) {
 		SignatureNonceTTL:      getDur("SIGNATURE_NONCE_TTL", 10*time.Minute),
 		EncryptSensitiveFields: getBool("ENCRYPT_SENSITIVE_FIELDS", true),
 		EncryptionKeyExplicitHex: getStr("ENCRYPTION_KEY_HEX", ""),
+
+		AgentMaxSteps:     getInt("AGENT_MAX_STEPS", 5),
+		AgentMaxTokens:    getInt("AGENT_MAX_TOKENS", 4000),
+		AgentMaxWallclock: getDur("AGENT_MAX_WALLCLOCK", 20*time.Second),
+		AgentSkillTimeout: getDur("AGENT_SKILL_TIMEOUT", 5*time.Second),
+		AgentSystemPrompt: getStr("AGENT_SYSTEM_PROMPT", ""),
+
+		SkillDemoUserID: getStr("SKILL_DEMO_USER_ID", "demo-user"),
+
+		TicketSweepInterval: getDur("TICKET_SWEEP_INTERVAL", time.Minute),
+
+		AppEnv: getStr("APP_ENV", "development"),
 	}
 
 	if err := cfg.validate(); err != nil {
@@ -147,6 +180,20 @@ func (c *Config) validate() error {
 		c.LLMProvider = LLMProviderMiniMax
 		if c.MiniMax.APIKey == "" {
 			return errors.New("MiniMax_API_KEY is required when LLM_PROVIDER=MiniMax")
+		}
+		// Defensive check: the older api.minimaxi.cn host (with the extra
+		// 'i') points to a defunct international region — requests resolve
+		// and then EOF mid-handshake, which is hard to diagnose from logs.
+		// Reject early with a clear message so operators see the fix path
+		// immediately instead of debugging a "all channels failed" error
+		// at request time.
+		if strings.Contains(c.MiniMax.BaseURL, "minimaxi.cn") {
+			return fmt.Errorf(
+				"MiniMax_BASE_URL %q uses the defunct api.minimaxi.cn host. "+
+					"Use https://api.minimax.cn/anthropic instead "+
+					"(see backend/.env.example lines 43-46)",
+				c.MiniMax.BaseURL,
+			)
 		}
 	default:
 		return fmt.Errorf("invalid LLM_PROVIDER %q (want openai | MiniMax)", c.LLMProvider)

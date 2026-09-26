@@ -229,6 +229,114 @@ func (c *Client) RateSatisfaction(ctx context.Context, comment string) (int, flo
 // Internals
 // ----------------------------------------------------------------------------
 
+// Decide is the v2.1 generic entry point the Orchestrator calls. It
+// translates the Template + DecisionRequest into a Jev question and
+// maps the response back into a Decision. Returns apperr.Upstream when
+// Jev is disabled or the call fails — callers (Orchestrator) fall back
+// to local rules.
+//
+// The mapping is deterministic per (OutputType, template.Name):
+//   - choice templates → first label in tpl.Labels (or schema key) is
+//     the question id; Choice + Confidence populated.
+//   - score templates  → Score + Legend populated, Choice left empty.
+//   - noul templates   → Noul probability returned as Confidence, Choice
+//     left empty.
+//
+// Cost is hard-coded at $0.001 / call per Jev Arena's empirical
+// numbers; revisit when we have a real OpenRouter bill.
+func (c *Client) Decide(ctx context.Context, tpl *Template, req DecisionRequest) (*Decision, error) {
+	if !c.Enabled() {
+		return nil, apperr.Upstream("jev disabled")
+	}
+	state := renderInstructions(tpl.Instructions, req.Input)
+	criterion := Criterion{
+		Type:         string(tpl.OutputType),
+		Instructions: tpl.Instructions,
+	}
+	switch tpl.OutputType {
+	case OutputChoice:
+		criterion.Criteria = map[string]any{}
+		for _, l := range tpl.Labels {
+			criterion.Criteria[l] = l
+		}
+	case OutputScore:
+		criterion.Legend = tpl.Labels
+	case OutputNoul:
+		criterion.Criteria = map[string]any{
+			"true":  "yes",
+			"false": "no",
+		}
+	default:
+		return nil, apperr.BadRequest(fmt.Sprintf("unsupported output_type %q", tpl.OutputType))
+	}
+	body := request{
+		Model: c.model,
+		State: state,
+		Questions: map[string]Criterion{
+			"q": criterion,
+		},
+	}
+	var resp response
+	if err := c.do(ctx, body, &resp); err != nil {
+		return nil, err
+	}
+	ans, ok := resp.Answers["q"]
+	if !ok {
+		return nil, apperr.Upstream("jev returned no answer")
+	}
+	d := &Decision{
+		TenantID:        req.TenantID,
+		TemplateName:    tpl.Name,
+		TemplateVersion: tpl.Version,
+		Trigger:         req.Trigger,
+		OutputType:      tpl.OutputType,
+		CostUSD:         0.001,
+	}
+	switch tpl.OutputType {
+	case OutputChoice:
+		d.Choice = ans.Choice
+		d.Scores = map[string]any{"confidence": ans.Confidence}
+		conf := ans.Confidence
+		d.Confidence = &conf
+	case OutputScore:
+		d.Scores = map[string]any{"score": ans.Score}
+	case OutputNoul:
+		conf := ans.Noul
+		d.Confidence = &conf
+		d.Scores = map[string]any{"noul": ans.Noul}
+	}
+	return d, nil
+}
+
+// renderInstructions produces the "state" field for Jev (the contextual
+// prelude to the criterion). v2.1 uses a simple template substitution
+// via the {{.key}} form defined by Go's text/template — kept here
+// instead of importing text/template because we only support the dot
+// key=value shape used by the YAML files.
+func renderInstructions(body string, input map[string]any) string {
+	if body == "" || len(input) == 0 {
+		return ""
+	}
+	out := body
+	for k, v := range input {
+		token := fmt.Sprintf("{{.%s}}", k)
+		out = strings.ReplaceAll(out, token, fmt.Sprintf("%v", v))
+	}
+	// Strip any remaining placeholders so Jev doesn't see literal {{...}}.
+	for {
+		start := strings.Index(out, "{{")
+		if start < 0 {
+			break
+		}
+		end := strings.Index(out[start:], "}}")
+		if end < 0 {
+			break
+		}
+		out = out[:start] + out[start+end+2:]
+	}
+	return out
+}
+
 func (c *Client) do(ctx context.Context, body request, out any) error {
 	lg := log.With(ctx, c.logger)
 	start := time.Now()

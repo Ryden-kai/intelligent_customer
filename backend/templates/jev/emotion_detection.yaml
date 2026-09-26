@@ -1,0 +1,20 @@
+# emotion_detection.yaml — ⑦ 用户情绪识别
+# 触发点：转人工前
+# 输出：score（angry/anxious/neutral/satisfied/urgent 的概率分布）
+# 兜底：neutral（无信号）
+name: emotion_detection
+version: 1
+description: 用户情绪与紧急度识别（通用版）
+trigger: handover.pre
+output_type: score
+template: |
+  分析用户最近消息的情绪分布与紧急度。
+
+  最近消息：{{.recent_messages}}
+
+  输出 JSON：{"scores": {"angry": 0.x, "anxious": 0.x, "neutral": 0.x, "satisfied": 0.x, "urgent": 0.x}}
+fallback:
+  type: default
+  value: neutral
+  score:
+    neutral: 1.0

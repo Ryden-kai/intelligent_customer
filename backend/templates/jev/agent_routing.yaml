@@ -1,0 +1,25 @@
+# agent_routing.yaml — ⑥ 坐席分配路由
+# 触发点：转人工决策
+# 输出：choice（技能组 ID）
+# 兜底：default_skill_group
+name: agent_routing
+version: 1
+description: 转人工时坐席 / 技能组路由（通用版）
+trigger: agent.assign
+output_type: choice
+labels:
+  - default_skill_group
+  - vip_skill_group
+  - tech_skill_group
+template: |
+  判断转人工会话应该路由到哪个技能组。
+
+  会话摘要：{{.session_summary}}
+  用户画像：{{.customer_profile}}
+  可用技能组：{{.skill_groups}}
+  各技能组负载：{{.skill_group_load}}
+
+  输出 JSON：{"label": "<skill_group_id>", "score": 0.0-1.0, "reason": "..."}
+fallback:
+  type: default
+  value: default_skill_group

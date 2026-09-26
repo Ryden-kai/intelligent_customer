@@ -21,6 +21,8 @@ import { EmptyState } from './EmptyState';
 export interface ConversationListProps {
   /** 选中后是否需要调用方做后续动作（如关闭 Drawer） */
   onSelect?: (id: string) => void;
+  /** 删除会话后通知调用方清理对应的 messages / serverConversationId / localStorage */
+  onDelete?: (id: string) => void;
 }
 
 function relativeTime(ts: number): string {
@@ -33,7 +35,7 @@ function relativeTime(ts: number): string {
   return new Date(ts).toLocaleDateString('zh-CN');
 }
 
-export function ConversationList({ onSelect }: ConversationListProps) {
+export function ConversationList({ onSelect, onDelete }: ConversationListProps) {
   const conv = useConversations();
   const { list, currentId, createNew, setCurrentId, remove } = conv;
 
@@ -50,6 +52,11 @@ export function ConversationList({ onSelect }: ConversationListProps) {
     e.stopPropagation();
     if (typeof window !== 'undefined' && !window.confirm('确定删除该会话吗？')) return;
     remove(id);
+    // Notify the parent so it can clear messages / serverConversationId /
+    // localStorage ic.conversation_id — otherwise the chat pane keeps
+    // showing the deleted session's history and the user thinks delete
+    // didn't work.
+    onDelete?.(id);
   }
 
   return (

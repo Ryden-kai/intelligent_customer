@@ -77,6 +77,48 @@ func (r *Conversations) Close(ctx context.Context, id string) error {
 	return err
 }
 
+// UpdateTitle overwrites a conversation's title. Used by the bulk-tagging
+// endpoint (v2.2 PR5) which encodes the tag inside the title prefix until
+// v2.2.1 introduces a dedicated tag column.
+func (r *Conversations) UpdateTitle(ctx context.Context, id, title string) error {
+	_, err := r.DB.ExecContext(ctx,
+		`UPDATE conversations SET title=?, updated_at=? WHERE id=?`,
+		title, time.Now().UnixMilli(), id)
+	return err
+}
+
+// ListByStatus returns conversations matching status, sorted newest first,
+// up to limit. Exposed for the v2.2 PR5 CSV export endpoint so the
+// handler doesn't have to reach into ListAdmin's filter shape.
+func (r *Conversations) ListByStatus(ctx context.Context, status string, limit int) ([]model.Conversation, error) {
+	if limit <= 0 || limit > 10000 {
+		limit = 10000
+	}
+	args := []any{}
+	where := ""
+	if status != "" {
+		where = "WHERE status = ?"
+		args = append(args, status)
+	}
+	rows, err := r.DB.QueryContext(ctx,
+		`SELECT id,user_id,title,status,handed_over,created_at,updated_at
+		 FROM conversations `+where+` ORDER BY updated_at DESC LIMIT ?`,
+		append(args, limit)...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]model.Conversation, 0, limit)
+	for rows.Next() {
+		c, err := scanConversation(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, *c)
+	}
+	return out, rows.Err()
+}
+
 // ListAdmin returns conversations with pagination, newest first.
 type ConvFilter struct {
 	Status model.ConvStatus // empty = any
