@@ -45,3 +45,7 @@ frontend/.env.local
 
 # Signing helper artefacts
 backend/scripts/*.log
+
+# Local test / build stdout (CI noise, not source)
+backend/test-output.txt
+frontend/test-output.txt
